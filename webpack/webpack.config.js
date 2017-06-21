@@ -28,6 +28,7 @@ var webpackIsomorphicToolsPlugin = new WebpackIsomorphicToolsPlugin(require('./w
 
 function gPlugins(){
   var res = [
+    // new webpack.optimize.ModuleConcatenationPlugin(),
     new webpack.optimize.CommonsChunkPlugin({ name: 'vendors' }),
     new webpack.HotModuleReplacementPlugin(),
     new webpack.LoaderOptionsPlugin({
@@ -106,10 +107,15 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.(js|jsx)$/,
+        test: /^(?!.*(\_inline)).*\.(js|jsx)$/,
         exclude: /node_modules/,
         loader: 'babel-loader',
         query: babelLoaderQuery
+      },
+      {
+        test: /\_inline\.(js|jsx)$/,
+        exclude: /node_modules/,
+        loader: 'file-loader?hash=sha512&digest=hex&name=js/[hash].[ext]',
       },
       {
         test: /\_inline\.svg$/i,
@@ -119,14 +125,14 @@ module.exports = {
         test: /^(?!.*(\_b|\_inline)).*\.(jpe?g|png|gif|svg)$/i,
         use: [
           'file-loader?hash=sha512&digest=hex&name=img/[hash].[ext]',
-          'image-webpack-loader?bypassOnDebug&optimizationLevel=7&interlaced=false'
+          'image-webpack-loader?{optipng: {optimizationLevel: 7}, gifsicle: { interlaced: false }, pngquant:{quality: "75-90", speed: 4}, mozjpeg: {quality: 75}}'
         ]
       },
       {
         test: /\_b\.(jpe?g|png|gif|svg)$/i,
         use: [
           'url-loader?name=img/[hash:8].[name].[ext]',
-          'image-webpack-loader?bypassOnDebug&optimizationLevel=7&interlaced=false'
+          'image-webpack-loader?{optipng: {optimizationLevel: 7}, gifsicle: { interlaced: false }, pngquant:{quality: "75-90", speed: 4}, mozjpeg: {quality: 75}}'
         ]
       },
       {
