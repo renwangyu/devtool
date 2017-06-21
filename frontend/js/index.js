@@ -1,204 +1,95 @@
 import React, { Component } from 'react'
-import { render } from 'react-dom'
+import { render, findDOMNode } from 'react-dom'
+import * as THREE from 'three';
 
 import '../css/index.scss';
 
+const { innerHeight, innerWidth, devicePixelRatio } = window;
+
+let renderer = null;
+let scene = null;
+let camera = null;
+
+const max = 500;
+let line = null;
+let drawCount;
+
 class App extends Component {
+
+  constructor(props) {
+    super(props);
+
+    this.animate = this.animate.bind(this);
+  }
+
+  updatePositions() {
+    const positions = line.geometry.attributes.position.array;
+    let index = 0;
+    let x = 0;
+    let y = 0;
+    let z = 0;
+
+    for (let i = 0, l = max; i < l; i ++ ) {
+      positions[ index ++ ] = x;
+      positions[ index ++ ] = y;
+      positions[ index ++ ] = z;
+
+      x += ( Math.random() - 0.5 ) * 30;
+      y += ( Math.random() - 0.5 ) * 30;
+      z += ( Math.random() - 0.5 ) * 30;
+    }
+  }
+
+  animate() {
+    window.requestAnimationFrame(this.animate);
+    drawCount = (drawCount + 1) % max;
+    line.geometry.setDrawRange(0, drawCount);
+
+    if (!drawCount) {
+      this.updatePositions();
+      line.geometry.attributes.position.needsUpdate = true;
+      line.material.color.setHSL(Math.random(), 1, 0.5);
+    }
+
+    renderer.render( scene, camera );
+  }
+
+  init() {
+    const ele = findDOMNode(this);
+    scene = new THREE.Scene();
+    renderer = new THREE.WebGLRenderer({ canvas: ele });
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
+
+    camera = new THREE.PerspectiveCamera(45, innerWidth/innerHeight, 1, 500);
+    camera.position.set(0,0,100);
+    camera.lookAt(new THREE.Vector3(0,0,0));
+
+    const geometry = new THREE.BufferGeometry();
+
+    const positions = new Float32Array(max * 3);
+    geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+
+    drawCount = 2;
+    geometry.setDrawRange(0, drawCount);
+
+    const material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
+
+    line = new THREE.Line(geometry, material);
+    scene.add(line);
+
+    this.updatePositions();
+
+  }
+
+  componentDidMount() {
+    this.init();
+    this.animate();
+  }
+
   render() {
     return (
-      <div className="container">
-        <div className="header">
-          <div className="img">
-            <i className="t-font t-font-setting user percenter"></i>
-          </div>
-          <input type="text" placeholder="搜索..."/>
-        </div>
-        <div className="people">
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-          <div className="person" data-after="朋友">
-            <i className="t-font t-font-user user percenter"></i>
-          </div>
-        </div>
-        <div className="rooms">
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-          <div className="room">
-            <div className="img">
-              <i className="t-font t-font-image user percenter"></i>
-            </div>
-            <div className="title">标题</div>
-            <div className="tags">
-              <div className="tag">冰与火之歌</div>
-              <div className="tag">黑暗之魂</div>
-              <div className="tag">Ed Sheeran</div>
-              <div className="tag">Just Code</div>
-            </div>
-          </div>
-        </div>
-        <div className="side">
-          <div className="avatar">
-            <div className="img">
-              <i className="t-font t-font-user user percenter"></i>
-            </div>
-          </div>
-          <div className="name">晓爽</div>
-          <div className="option">护眼模式</div>
-          <div className="option checked">创建房间可见</div>
-          <div className="option">收藏房间可见</div>
-          <div className="option">个人空间作为首页</div>
-          <div className="go-rooms href">查看个人空间</div>
-          <div className="footer href">关于我们,晓聊</div>
-          <div className="bg"></div>
-        </div>
-        <div className="side right">
-          <div className="avatar">
-            <div className="logo percenter">
-              <div className="before" data-before="晓" data-after="xiao"></div>
-              <div className="after" data-before="liao" data-after="聊"></div>
-            </div>
-          </div>
-          <div className="name">希望找到你的知己</div>
-          <div className="option checked">升级数据库</div>
-          <div className="option">升级数据库</div>
-          <div className="option">重新设计UI</div>
-
-          <div className="href">感谢捐赠晓聊</div>
-
-          <div className="qrcode">
-            <i className="t-font t-font-qrcode"></i>
-            <i className="t-font t-font-qrcode"></i>
-          </div>
-        </div>
-      </div>
+      <canvas>app</canvas>
     )
   }
 }
