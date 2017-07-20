@@ -1,144 +1,27 @@
-var webpack = require('webpack');
 var path = require('path');
-var webpackDevMiddleware = require('webpack-dev-middleware')
-var ExtractTextPlugin = require('extract-text-webpack-plugin');
-var HtmlWebpackPlugin = require('html-webpack-plugin');
-var CleanPlugin = require('clean-webpack-plugin');
-var htmlMinify = require('html-minifier');
-var pro = process.env.NODE_ENV == 'production';
-var rootPath = path.resolve(__dirname, '..');
+var webpack = require('webpack');
+var config = require('./webpack.config.dev');
 
-var babelConfig = require('../babel.json');
-var babelrcObjectDevelopment = babelConfig.env && babelConfig.env.development || {};
-
-// merge global and dev-only presets & plugins
-var combinedPlugins = babelConfig.plugins || [];
-var combinedPresets = babelConfig.presets || [];
-combinedPlugins = combinedPlugins.concat(babelrcObjectDevelopment.plugins);
-combinedPresets = combinedPresets.concat(babelrcObjectDevelopment.presets);
-
-var babelLoaderQuery = Object.assign({}, babelConfig, {
-  presets: combinedPresets,
-  plugins: combinedPlugins
+var threePlugin = new webpack.ProvidePlugin({
+  'THREE': 'three',
 });
-delete babelLoaderQuery.env;
 
-var WebpackIsomorphicToolsPlugin = require('webpack-isomorphic-tools/plugin');
-var webpackIsomorphicToolsPlugin = new WebpackIsomorphicToolsPlugin(require('./webpack-isomorphic-tools'));
+var threeAlias = {
+  'three/OrbitControls': path.join(__dirname, '../node_modules/three/examples/js/controls/OrbitControls.js'),
+};
 
-function gPlugins(){
-  var res = [
-    new webpack.optimize.CommonsChunkPlugin({ name: 'vendors' }),
-    new webpack.HotModuleReplacementPlugin(),
-    new webpack.LoaderOptionsPlugin({
-      options: {
-        postcss: [ 
-          require('autoprefixer')({
-            browsers: ['last 4 version']
-          }),
-          require('cssnano')(),
-        ]
-      }
-    }),
-    new ExtractTextPlugin({
-      filename: "css/[name].css",
-      allChunks: true
-    }),
-    new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-    }),
-    new webpack.optimize.OccurrenceOrderPlugin(),
-    new HtmlWebpackPlugin({
-      template: "./index.html",
-      hash: true,
-      cache: true,
-      inject: true,
-      minify: pro ? htmlMinify: false,
-      dev: !pro,
-      chunks: ['vendors', 'global'],
-      // excludeChunks: ['dev'],
-      filename: 'html/index.html'
-    })
-  ];
-
-  if(pro) {
-    res.push(new webpack.optimize.UglifyJsPlugin({
-      compress: {
-        warnings: false,
-        collapse_vars: true,
-        reduce_vars: true,
-      },
-      beautify: false,
-      comments: false
-    }));
-
-    res.push(webpackIsomorphicToolsPlugin);
-    res.push(new CleanPlugin([rootPath + '/public'], { root: rootPath }));
+var assign = function(e) {
+  for (var t = 1; t < arguments.length; t++) {
+    var n = arguments[t];
+    for (var r in n)
+      Object.prototype.hasOwnProperty.call(n, r) && (e[r] = n[r])
   }
-
-  return res;
+  return e
 }
 
-module.exports = {
-  devtool: pro ? 'hidden-source-map' : 'source-map',
- 
-  entry: {
-    global: pro ? [rootPath + '/frontend/js/index.js']: [
-      'webpack-hot-middleware/client', 
-      'webpack/hot/only-dev-server',
-      rootPath + '/frontend/js/index.js'
-    ],
-  },
-  output: {
-    path: rootPath +  '/public/',
-    filename: 'js/[name].js',
-    chunkFilename: 'js/[name].[chunkhash:8].js',
-    publicPath: '/'
-  },
+config.resolve = config.resolve || {};
+config.resolve.alias = config.resolve.alias || {};
+config.resolve.alias = assign({}, config.resolve.alias, threeAlias);
+config.plugins.push(threePlugin)
 
-  resolve: {
-    modules: [
-      'frontend',
-      'node_modules',
-    ],
-    extensions: ['.js', '.jsx', '.scss'],
-  },
-  module: {
-    rules: [
-      {
-        test: /\.(js|jsx)$/,
-        exclude: /node_modules/,
-        loader: 'babel-loader',
-        query: babelLoaderQuery
-      },
-      {
-        test: /\_inline\.svg$/i,
-        loader: 'babel-loader?presets[]=es2015,presets[]=react!svg-react-loader'
-      },
-      {
-        test: /^(?!.*(\_b|\_inline)).*\.(jpe?g|png|gif|svg)$/i,
-        use: [
-          'file-loader?hash=sha512&digest=hex&name=img/[hash].[ext]',
-          'image-webpack-loader?bypassOnDebug&optimizationLevel=7&interlaced=false'
-        ]
-      },
-      {
-        test: /\_b\.(jpe?g|png|gif|svg)$/i,
-        use: [
-          'url-loader?name=img/[hash:8].[name].[ext]',
-          'image-webpack-loader?bypassOnDebug&optimizationLevel=7&interlaced=false'
-        ]
-      },
-      {
-        test: /\.scss$/,
-        use: pro ? ExtractTextPlugin.extract({
-          fallback: 'style-loader', 
-          use: ['css-loader?minimize', 'sass-loader']
-        }) 
-        : ['style-loader', 'css-loader?minimize', 'sass-loader']
-      }
-    ]
-  },
-
-  plugins: gPlugins()
-}
+module.exports = config;
