@@ -9,252 +9,14 @@ import 'three/OrbitControls';
 import data from './data.js';
 import '../css/index.scss';
 
-const { innerHeight, innerWidth, devicePixelRatio } = window;
-const FLOOR = -250;
+let container;
+let { innerWidth, innerHeight } = window;
+const { devicePixelRatio } = window;
 
-let container, stats;
-
-let camera, scene;
-let renderer;
-
-let mesh, mesh2, helper;
-
-let mixer, facesClip, bonesClip;
-
-let mouseX = 0, mouseY = 0;
-
-let windowHalfX = innerHeight / 2;
-let windowHalfY = innerHeight / 2;
-
-const clock = new THREE.Clock();
-
-const onResize = () => {
-  windowHalfY = window.innerWidth / 2;
-  windowHalfY = window.innerHeight / 2;
-
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-const createScene = (geometry, materials, x, y, z, s) => {
-  geometry.computeBoundingBox();
-
-  const bb = geometry.boundingBox;
-
-  materials.forEach((m, i) => {
-    m.skinning = true;
-    m.morphTargets = true;
-
-    m.specular.setHSL(0, 0, 0.1);
-    m.color.setHSL(0.6, 0, 0.6);
-  });
-
-  mesh = new THREE.SkinnedMesh(geometry, materials);
-  mesh.name = 'Knight Mesh';
-  mesh.position.set(x, y - bb.min.y * s, z);
-  mesh.scale.set(s, s, s);
-  scene.add(mesh);
-
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-
-  mesh2 = new THREE.SkinnedMesh(geometry, materials);
-  mesh2.name = 'Lil\' Bro Mesh';
-  mesh2.position.set(x - 240, y - bb.min.y * s, z + 500);
-  mesh2.scale.set(s/2, s/2, s/2);
-  mesh2.rotation.y = THREE.Math.degToRad(60);
-
-  mesh2.visible = false;
-
-  mesh2.castShadow = true;
-  mesh2.receiveShadow = true;
-  scene.add(mesh2);
-
-  helper = new THREE.SkeletonHelper(mesh);
-  helper.material.linewidth = 3;
-  helper.visible = false;
-  scene.add(helper);
-
-  mixer = new THREE.AnimationMixer(mesh);
-  bonesClip = geometry.animations[0];
-  facesClip = THREE.AnimationClip.CreateFromMorphTargetSequence('facialExpressions', mesh.geometry.morphTargets, 3);
-}
-
-const initGUI = () => {
-  let API = {
-    'show model': true,
-    'show skeleton': false,
-    'show 2nd model': false,
-  };
-
-  const gui = new dat.GUI();
-
-  gui.add(API, 'show model').onChange(() => {
-    mesh.visible = API['show model'];
-  });
-
-  gui.add(API, 'show skeleton').onChange(() => {
-    helper.visible = API['show skeleton'];
-  });
-
-  gui.add(API, 'show 2nd model').onChange(() => {
-    mesh2.visible = API['show 2nd model'];
-  });
-
-  const objectNames = (objects) => objects.map(obj => obj && obj.name || '&lt;null&gt;');
-
-  const clipControl = (gui, mixer, clip, rootObjects) => {
-    const folder = gui.addFolder(`Clip'${clip.name}`);
-    const [root] = rootObjects;
-
-    let rootNames = objectNames(rootObjects);
-    let action = null;
-
-    API = {
-      'play()': () => {
-        action = mixer.clipAction(clip, root);
-        action.stop();
-      },
-      'stop()': () => {
-        action: mixer.clipAction(clip, root);
-        action.reset();
-      }
-
-      get 'time = '() => {
-        return action !== null ? action.time : 0;
-      }
-
-      set 'time ='(value) {
-        action = mixer.clipAction(clip, root);
-        action.time = value;
-      }
-
-      get 'paused ='() {
-        return action !== null && action.paused;
-      }
-
-      set 'paused ='(value) {
-        action = mixer.clipAction(clip, root);
-        action.paused = value;
-      }
-
-      get 'enabled ='() {
-        return action !== null && action.enabled;
-      }
-
-      set 'enabled ='(value) {
-        action = mixer.clipAction(clip, root);
-        action.enabled = value;
-      }
-
-      get 'clamp ='() {
-        return action !== null ? action.clampWhenFinished : false;
-      }
-
-      set 'clamp ='(value) {
-        action = mixer.clipAction(clip, root);
-        action.clampWhenFinished = value;
-      }
-
-      get 'isRunning() ='() {
-        return action !== null && action.isRunning();
-      }
-
-      set 'isRunning() ='(value) {
-        alert('Read only - this is the result of a method.');
-      }
-
-      'play delayed': () => {
-        action = mixer.clipAction(clip, root);
-      }
-
-      get 'weight ='() {
-        return action !== null ? action.weight : 1;
-      }
-
-      set 'weight ='(value) {
-        action = mixer.clipAction(clip, root);
-        action.weight = value;
-      }
-
-      get 'eff. weight'() {
-        return action !== null ? action.getEffectiveWeight() : 1;
-      }
-
-      set 'eff. weight'(value) {
-        action = mixer.clipAction(clip, root);
-        action.setEffectiveWeight(value)
-      }
-
-      'fade in': () => {
-        action = action.clipAction(clip, root);
-        action.reset().fadeIn(0.25).play();
-      }
-
-      'fade out': () => {
-        action = mixer.clipAction(clip, root);
-        action.fadeOut(0.25).play();
-      }
-
-      get 'timeScale ='() {
-        return action !== null ? action.timeScale : 1;
-      }
-
-      set 'timeScale ='(value) {
-        action = mixer.clipAction(clip, root);
-        action.timeScale = value;
-      } 
-
-      get 'eff.T.Scale'() {
-        return action !== action.getEffectiveTimeScale() : 1;
-      }
-
-      set 'eff.T.Scale'(value) {
-        action = mixer.clipAction(clip, root);
-        action.setEffectiveTimeScale(value);
-      }
-
-      'time warp': () => {
-        action = mixer.clipAction(clip, root);
-
-        const timeScaleNow = action.getEffectiveTimeScale();
-        const destTimeScale = timeScaleNow > 0 ? -1 : 1;
-
-        action.warp(timeScaleNow, destTimeScale, 4).play();
-      }
-
-      get 'loop mode'() {
-        return action !== null ? action.loop : THREE.LoopRepeat;
-      }
-
-      set 'loop mode'(value) {
-        active = mixer.clipAction(clip, root);
-        action.loop = +value;
-      }
-
-      get 'repetitions'() {
-        return action !== null ? action.repetitions : Infinity;
-      }
-
-      set 'repetitions'(value) {
-        action = mixer.clipAction(clip, root);
-        action.repetitions = +value;
-      }
-
-      get 'local root'() {
-        return rootName;
-      }
-
-      set 'local root'(value) {
-        rootName = value;
-        root = rootObjects[rootNames.indexOf(rootName)];
-        action = mixer.clipAction(clip, root);
-      }
-    }
-  }
-}
+let camera, scene, renderer, raycaster, intersected;
+const mouse = new THREE.Vector2();
+const radius = 100;
+const theta = 0;
 
 class App extends Component {
 
@@ -262,79 +24,118 @@ class App extends Component {
     super(props);
 
     this.animate = this.animate.bind(this);
+    this.onWindowResize = this.onWindowResize.bind(this);
+    this.onMouseMove = this.onMouseMove.bind(this);
+  }
+
+  onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  onMouseMove(e) {
+    e.preventDefault();
+
+    const { clientX, clientY } = e;
+
+    mouse.x = clientX * 2 / window.innerWidth - 1;
+    mouse.y = clientY * 2 / window.innerHeight - 1;
   }
 
   animate() {
+    requestAnimationFrame(this.animate, renderer);
+
+    theta += 0.1;
+
+    camera.position.x = radius * Math.sin( THREE.Math.degToRad(theta) );
+    camera.position.y = radius * Math.sin( THREE.Math.degToRad(theta) );
+    camera.position.z = radius * Math.cos( THREE.Math.degToRad(theta) );
+    camera.lookAt(scene.position);
+
+    camera.updateMatirxWorld();
+
+    raycaster.setFromCamera(mouse, camera);
+
+    const intersects = raycaster.intersectObjects(scene.children);
+
+    if (intersects.length > 0) {
+      const targetDistance = intersects[0].distance;
+    }
+
+    stats.update();
   }
 
   init() {
     container = findDOMNode(this);
 
-    camera = new THREE.PerspectiveCamera(30, innerWidth/innerHeight, 1, 10000);
-    camera.position.z = 2200;
+    camera = new THREE.CinematicCamera(60, innerWidth/innerHeight, 1, 100);
+    camera.setLens(5);
+    camera.position.set(2, 1, 500);
 
     scene = new THREE.Scene();
+    scene.add( new THREE.AmbinetLight(0xffffff, 0.3) );
 
-    scene.fog = new THREE.Fog(0xffffff, 2000, 10000);
-    scene.add(camera);
-
-    const geometry = new THREE.PlaneBufferGeometry(16000, 16000);
-    const material = new THREE.MeshPhongMaterial({ emissive: 0x888888 });
-
-    const ground = new THREE.Mesh(geometry, material);
-    ground.position.set(0, FLOOR, 0);
-    ground.rotation.x = -Math.PI/2;
-    scene.add(ground);
-
-    ground.receiveShadow = true;
-
-    //lights
-    scene.add( new THREE.HemisphereLight(0x111111, 0x444444) );
-
-    const light = new THREE.DirectionalLight(0xebf3ff, 1.5);
-    light.position.set(0, 140, 500).multiplyScalar(1.1);
+    const light = new THREE.DirectionalLight(0xffffff, 0.35);
+    light.position.set(1,1,1).normalize();
     scene.add(light);
 
-    light.castShadow = true;
+    const geometry = new THREE.BoxGeometry(20, 20, 20);
 
-    light.shadow.mapSize.width = 1024;
-    light.shadow.mapSize.height = 1024;
+    for (let v = 0; v < 1500; v += 1) {
+      const obj = new THREE.Mesh(geometry, new THREE.MeshLamberMaterial({ color: Math.random() * 0xffffff }));
 
-    const d = 390;
+      obj.position.x = Math.random() * 800 - 400;
+      obj.position.y = Math.random() * 800 - 400;
+      obj.position.z = Math.random() * 800 - 400;
 
-    light.shadow.camera.left = -d;
-    light.shadow.camera.right = d;
-    light.shadow.camera.top = d * 1.5;
-    light.shadow.camera.far = 3500;
+      scene.add(obj);
+    }
 
-    //renderer
+    raycaster = new THREE.Raycaster();
+
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setClearColor(scene.fog.color);
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setClearColor(0xf0f0f0);
+    renderer.setPixelRatio(devicePixelRatio);
     renderer.setSize(innerWidth, innerHeight);
-    renderer.domElement.style.position = 'relative';
+    renderer.sortObjects = false;
+    conatiner.appendChild(renderer.domElement);
 
-    container.appendChild(renderer.domElement);
+    stas = new Stats();
 
-    renderer.gammaInput = true;
-    renderer.gammaOutput = true;
+    container.appendChild(stas.dom);
 
-    renderer.shadowMap.enabled = true;
+    const effectController = {
+      focalLength: 15,
+      fstop: 2.8,
+      showFocus: false,
+      focalDepth: 3,
+    };
 
-    //stats
+    const matChanger = () => {
+      for (let attr in effectController) {
+        attr in camera.postprocessing.bokeh_uniforms && camera.postprocessing.bokeh_uniforms[attr].value = effectController[attr];
+      }
 
-    stats = new Stats();
-    container.appendChild(stats.dom);
+      camera.postprocessing.bokeh_uniforms.znear.value = camera.near;
+      camera.postprocessing.bokeh_uniforms.zfar.value = camera.far;
+      camera.setLens( effectController.focalLength, camera.frameHeight, effectController.fstop, camera.coc );
+      effectController['focalDepth'] = camera.postprocessing.bokeh_uniforms['focalDepth'].value;
+    }
 
-    new THREE.JSONLoader().load('https://threejs.org/examples/models/skinned/knight.js', (geometry, materials) => {
-      createScene(geometry, materials, 0, FLOOR, -300, 60);
+    const gui = new dat.GUI();
 
-      initGUI();
-    });
+    gui.add(effectController, 'focalLength', 1, 135, 0.01).onChange(matChanger);
+    gui.add(effectController, 'fstop', 1.8, 22, 0.01).onChange(matChanger);
+    gui.add(effectController, 'focalDepth', 0.1, 100, 0.001).onChange(matChanger);
+    gui.add(effectController, 'showFocus', true).onChange(matChanger);
+
+    matChanger();
 
     this.animate();
 
-    window.addEventListener('resize', onResize, false);
+    window.addEventListener('resize', this.onWindowResize, false);
   }
 
   componentDidMount() {
@@ -343,7 +144,7 @@ class App extends Component {
 
   render() {
     return (
-      <div />
+      <div tabIndex="1" onMouseMove={this.onMouseMove}/>
     )
   }
 }
