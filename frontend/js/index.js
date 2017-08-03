@@ -11,244 +11,150 @@ import 'three/BokehShader2'
 import data from './data.js';
 import '../css/index.scss';
 
-document.documentElement.style.fontSize = Math.min(640, Math.max(document.documentElement.clientWidth, 320)) / 320 * 14 + 'px'
-
 let container;
 let { innerWidth, innerHeight } = window;
 const { devicePixelRatio } = window;
 
-const near = 1e-6;
-const far = 1e27;
-const mouse = [0.5, 0.5];
-const minzoomspeed = 0.015;
-const objs = {};
+let camera, scene, renderer;
+let group, mode;
+let stats;
 
-let screenSplit = 0.25;
-let screenRight = 0;
-let zoompos = -100;
-
-let zoomspeed = minzoomspeed;
-
-let border, stats;
-var labelData = [
-  { size: .01, scale: 0.0001, label: "microscopic (1µm)" },
-  { size: .01, scale: 0.1, label: "minuscule (1mm)" },
-  { size: .01, scale: 1.0, label: "tiny (1cm)" },
-  { size: 1, scale: 1.0, label: "child-sized (1m)" },
-  { size: 10, scale: 1.0, label: "tree-sized (10m)" },
-  { size: 100, scale: 1.0, label: "building-sized (100m)" },
-  { size: 1000, scale: 1.0, label: "medium (1km)" },
-  { size: 10000, scale: 1.0, label: "city-sized (10km)" },
-  { size: 3400000, scale: 1.0, label: "moon-sized (3,400 Km)" },
-  { size: 12000000, scale: 1.0, label: "planet-sized (12,000 km)" },
-  { size: 1400000000, scale: 1.0, label: "sun-sized (1,400,000 km)" },
-  { size: 7.47e12, scale: 1.0, label: "solar system-sized (50Au)" },
-  { size: 9.4605284e15, scale: 1.0, label: "gargantuan (1 light year)" },
-  { size: 3.08567758e16, scale: 1.0, label: "ludicrous (1 parsec)" },
-  { size: 1e19, scale: 1.0, label: "mind boggling (1000 light years)" },
-  { size: 1.135e21, scale: 1.0, label: "galaxy-sized (120,000 light years)" },
-  { size: 9.46e23, scale: 1.0, label: "... (100,000,000 light years)" },
-];
-
-const initView = (scene, name, logDepthBuf) => {
-  const frameContainer = document.getElementById(`container_${name}`);
-  const camera = new THREE.PerspectiveCamera(50, screenSplit * innerWidth / innerHeight, near, far);
-
-  scene.add(camera);
-
-  const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: logDepthBuf });
-
-  renderer.setPixelRatio(devicePixelRatio);
-  renderer.setSize(innerWidth/2, innerHeight);
-  renderer.domElement.style.position = "relative";
-  renderer.domElement.id = `renderer_${name}`;
-  frameContainer.appendChild(renderer.domElement);
-
-  return {
-    container: frameContainer,
-    renderer,
-    scene,
-    camera,
-  };
-};
-
-const initScene = (font) => {
-  const scene = new THREE.Scene();
-
-  scene.add(new THREE.AmbientLight(0x222222));
-
-  const light = new THREE.DirectionalLight(0xffffff, 1);
-  light.position.set(100, 100, 100);
-  scene.add(light);
-
-  const materialArgs = {
-    color: 0xffffff,
-    specular: 0x050505,
-    shininess: 50,
-    shading: THREE.SmoothShading,
-    emissive: 0x000000,
-  };
-
-  const meshes = [];
-  const geometry = new THREE.SphereBufferGeometry(0.5, 24, 12);
-
-  labelData.forEach((item, i) => {
-    const { scale = 1, label, size } = item;
-    const labelGeo = new THREE.TextBufferGeometry(label, {
-      font,
-      size,
-      height: size / 2,
-    });
-
-    labelGeo.computeBoundingSphere();
-
-    labelGeo.translate(-labelGeo.boundingSphere.radius, 0, 0);
-    materialArgs.color = new THREE.Color().setHSL(Math.random(), 0.5, 0.5);
-
-    const material = new THREE.MeshPhongMaterial(materialArgs);
-    const group = new THREE.Group();
-    group.position.z = -size * scale;
-    scene.add(group);
-
-    const textMesh = new THREE.Mesh(labelGeo, material);
-    textMesh.scale.set(scale, scale, scale);
-    textMesh.position.z = -size * scale;
-    textMesh.position.y = size / 4 * scale;
-    group.add(textMesh);
-
-    const dotMesh = new THREE.Mesh(geometry, material);
-    dotMesh.position.y = -size / 4 * scale;
-    dotMesh.scale.multiplyScalar(size * scale);
-    group.add(dotMesh);
-  });
-
-  return scene;
-}
-
-const updateRendererSizes = () => {
-  innerHeight = window.innerHeight;
-  innerWidth = window.innerWidth;
-
-  screenRight = 1 - screenSplit;
-
-  const { normal = {}, logzbuf = {} } = objs;
-
-  normal.renderer.setSize(screenSplit * innerWidth, innerHeight);
-  normal.camera.aspect = screenSplit * innerWidth / innerHeight;
-  normal.camera.updateProjectionMatrix();
-  normal.camera.setViewOffset(innerWidth, innerHeight, 0, 0, innerWidth * screenSplit, innerHeight);
-  normal.container.style.width = `${screenSplit * 100}%`;
-
-  logzbuf.renderer.setSize(screenRight * innerWidth, innerHeight);
-  logzbuf.camera.aspect = screenRight * innerWidth / innerHeight;
-  logzbuf.camera.updateProjectionMatrix();
-  logzbuf.camera.setViewOffset(innerWidth, innerHeight, screenSplit * innerWidth, 0, innerWidth * screenRight, innerHeight);
-
-  logzbuf.container.style.width = `${screenRight * 100}%`;
-  border.style.left = `${screenSplit * 100}%`;
-}
+let startTime, time;
 
 class App extends Component {
-  // constructor(props) {
-  //   super(props);
+  constructor(props) {
+    super(props);
 
-  //   this.animate = this.animate.bind(this);
-  //   this.onWindowResize = this.onWindowResize.bind(this);
-  //   this.onMouseMove = this.onMouseMove.bind(this);
-  //   this.onMouseDown = this.onMouseDown.bind(this);
-  //   this.onMouseUp = this.onMouseUp.bind(this);
-  //   this.onWheel = this.onWheel.bind(this);
-  // }
+    this.animate = this.animate.bind(this);
+    this.onWindowResize = this.onWindowResize.bind(this);
+    this.onMouseMove = this.onMouseMove.bind(this);
+    this.onMouseDown = this.onMouseDown.bind(this);
+    this.onMouseUp = this.onMouseUp.bind(this);
+    this.onWheel = this.onWheel.bind(this);
+  }
 
-  // onWindowResize() {
-  //   updateRendererSizes();
-  // }
+  onWindowResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
 
-  // onMouseMove(e) {
-  //   e.stopPropagation();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
 
-  //   screenSplit = Math.max(0, Math.min(1, e.clientX / innerWidth));
-  // }
+  onMouseMove(e) {
+  }
 
-  // onMouseDown(e) {
-  //   e.stopPropagation();
-  //   e.preventDefault();
-  // }
-  // onMouseUp(e) {
+  onMouseDown(e) {
+  }
+  onMouseUp(e) {
 
-  // }
-  // onWheel(e) {
+  }
+  onWheel(e) {
 
-  // }
+  }
 
-  // animate() {
-  //   requestAnimationFrame(this.animate);
+  animate() {
+    requestAnimationFrame(this.animate);
 
-  //   const [ data = {} ] = labelData;
-  //   const { length = 0 } = labelData;
-  //   const { size, scale } = data;
+    const { children = [] } = group;
 
-  //   const minzoom = size * scale;
-  //   const maxzoom = labelData[length - 1].size * labelData[length - 1].scale * 100;
+    children.forEach((child) => {
+      const { material } = child;
 
-  //   let damping = Math.abs(zoomspeed) > minzoomspeed ? 0.95 : 1;
+      material.clippingPlanes.forEach((plane, i) => {
+        const { constant } = plane;
+        const { clipPosition } = mode;
 
-  //   const zoom = THREE.Math.clamp(Math.pow(Math.E, zoompos), minzoom, maxzoom);
-  //   zoompos = Math.log(zoom);
+        plane.constant = (constant * 49 + clipPosition ) / 50;
+      });
+    });
 
-  //   if ((zoom == minzoom && zoomspeed < 0) || ( zoom === maxzoom && zoomspeed > 0 )) {
-  //     damping = 0.85;
-  //   }
+    stats.begin();
+    renderer.render(scene, camera);
+    stats.end();
+  }
 
-  //   zoompos += zoomspeed;
-  //   zoomspeed *= damping;
+  init() {
+    container = findDOMNode(this);
 
-  //   const { normal = {}, logzbuf = {} } = objs;
+    camera = new THREE.PerspectiveCamera(40, innerWidth/innerHeight, 1, 800);
+    camera.position.set(-20, 10, 50);
+    camera.lookAt(new THREE.Vector3(0,0,0));
 
-  //   normal.camera.position.x = Math.sin(0.5 * Math.PI * (mouse[0] - 0.5)) * zoom;
-  //   normal.camera.position.y = Math.sin(0.25 * Math.PI * (mouse[1] - 0.5)) * zoom;
-  //   normal.camera.position.z = Math.cos(0.5 * Math.PI * (mouse[0] - 0.5)) * zoom;
+    scene = new THREE.Scene();
 
-  //   logzbuf.camera.position.copy(normal.camera.position);
-  //   logzbuf.camera.quaternion.copy(normal.camera.quaternion);
+    const light = new THREE.HemisphereLight(0x009999, 0xffff00, 1);
+    scene.add(light);
 
-  //   if (screenRight != 1 - screenSplit) {
-  //     updateRendererSizes();
-  //   }
+    const clipPlanes = [
+      new THREE.Plane(new THREE.Vector3(1, 0, 0), 0),
+      new THREE.Plane(new THREE.Vector3(0, -1, 0), 0),
+      new THREE.Plane(new THREE.Vector3(0, 0, -1), 0),
+    ];
 
-  //   normal.renderer.render(normal.scene, normal.camera);
-  //   logzbuf.renderer.render(logzbuf.scene, logzbuf.camera);
+    scene.add(new THREE.AmbientLight(0x505050));
+    group = new THREE.Object3D();
 
-  //   stats.update();
-  // }
+    for (let v = 1; v < 25; v++) {
+      const gemotry = new THREE.SphereBufferGeometry(v/2, 48, 48);
+      const material = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(Math.sin(v * 0.5) * 0.5 + 0.5, Math.cos(v * 1.5) * 0.5 + 0.5, Math.sin(v * 4.5) * 0.5 + 0.5),
+        roughness: 0.95,
+        metalness: 0,
+        side: THREE.DoubleSide,
+        clippingPlanes: clipPlanes,
+        clipIntersection: true,
+      });
 
-  // init() {
-  //   container = findDOMNode(this);
+      group.add(new THREE.Mesh(gemotry, material));
+    }
 
-  //   const loader = new THREE.FontLoader();
-  //   const font = loader.parse(data);
-  //   const scene = initScene(font);
+    scene.add(group);
 
-  //   objs.normal = initView(scene, 'normal', false);
-  //   objs.logzbuf = initView(scene, 'logzbuf', true);
+    renderer = new THREE.WebGLRenderer();
+    renderer.antialias = true;
+    renderer.setPixelRatio(devicePixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setClearColor(0x222222);
+    renderer.localClippingEnabled = true;
 
-  //   stats = new Stats();
-  //   container.appendChild(stats.dom);
+    window.addEventListener('resize', this.onWindowResize, false);
+    container.appendChild(renderer.domElement);
 
-  //   border = document.getElementById('renderer_border');
+    stats = new Stats();
+    container.appendChild(stats.dom);
 
-  //   this.animate();
-  // }
+    mode = {};
+    mode.clipIntersection = true;
+    mode.clipPosition = 0;
 
-  // componentDidMount() {
-  //   this.init();
-  // }
+    const gui = new dat.GUI();
+    gui.add(mode, 'clipIntersection').onChange(() => {
+      const { children = [] } = group;
+
+      children.forEach(child => {
+        child.material.clipIntersection = !child.material.clipIntersection;
+      });
+    });
+
+    gui.add(mode, 'clipPosition', -16, 16);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 1, 0);
+    controls.update();
+
+    startTime = Date.now();
+    time = 0;
+
+    this.animate();
+  }
+
+  componentDidMount() {
+    this.init();
+  }
 
   render() {
     return (
-      <div className="test">
-        <div className="item" />
-      </div>
+      <div />
     )
   }
 }
