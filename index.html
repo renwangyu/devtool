@@ -9,7 +9,83 @@
 	<title>标题</title>
 </head>
 <body>
+  <script>
+    class tEle extends HTMLElement {
+      constructor(props) {
+        super(props);
+
+        const shadowRoot = this.attachShadow({ mode: 'open', delegatesFocus: true });
+        shadowRoot.innerHTML = `
+          <style>
+            :focus{
+              margin: 100px;
+            }
+            :host{
+              background: rgba(0,0,0, .2);
+              display: block;
+              contain: content;
+            }
+            :host-context(.cube) {
+              color: green;
+            }
+
+            .a{
+              color: red;
+            }
+
+            ::slotted(span){
+              color: blue;
+            }
+
+            #testSlot2::slotted(span){
+              color: pink;
+            }
+          </style>
+
+          <div id="test">
+            <slot id="testSlot" name="tSlot">
+              test slot
+            </slot>
+            <slot id="testSlot2" name="tSlot2">
+              test slot2
+            </slot>
+          </div>
+
+          <div class="a">a</div>
+          <input type="text" name="" value="">
+        `;
+      }
+
+      connectedCallback() {
+        console.log('connectedCallback');
+      }
+
+      disconnectedCallback(...list) {
+        console.log('disconnectedCallback');
+        console.log(list)
+      }
+
+      attributeChangedCallback(...list) {
+        console.log('attributeChangedCallback');
+        console.log(list);
+      }
+
+      adoptedCallback(...list) {
+        console.log('adoptedCallback');
+        console.log(list);
+      }
+    }
+
+    customElements.define('t-ele', tEle);
+  </script>
+
   <div id="app"></div>
+  <div class="cube">
+    <t-ele>
+      <span slot="tSlot">1</span>
+      <span slot="tSlot2">2</span>
+    </t-ele>
+  </div>
   
 	<!-- <% if (htmlWebpackPlugin.options.dev) {%> -->
   <script type="text/javascript" src="/js/vendors.js"></script>
