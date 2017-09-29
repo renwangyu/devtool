@@ -1,9 +1,38 @@
 import React, { Component } from 'react'
 import { render } from 'react-dom'
+import 'three';
 
 import '../css/index.scss';
 
-const cShader = (str, gl, type = gl.VERTEX_SHADER) => {
+THREE.Matrix4.prototype.watchAt = function(eye, center, up) {
+  this.lookAt(eye, center, up);
+
+  const { elements = [] } = this;
+  const { x = 0, y = 0, z = 0 } = eye;
+
+  const x0 = elements[0];
+  const x1 = elements[1];
+  const x2 = elements[2];
+
+  const y0 = elements[4];
+  const y1 = elements[5];
+  const y2 = elements[6];
+
+  const z0 = elements[8];
+  const z1 = elements[9];
+  const z2 = elements[10];
+
+  this.elements = [
+    x0, y0, z0, 0,
+    x1, y1, z1, 0,
+    x2, y2, z2, 0,
+    -(x0 * x + x1 * y + x2 * z), -(y0 * x + y1 * y + y2 * z), -(z0 * x + z1 * y + z2 * z), 1,
+  ];
+
+  return this;
+};
+
+const cShader = (gl, str, type = gl.VERTEX_SHADER) => {
   if (!str || !gl) {
     return null;
   }
@@ -16,7 +45,7 @@ const cShader = (str, gl, type = gl.VERTEX_SHADER) => {
   return gl.getShaderParameter(shader, gl.COMPILE_STATUS) && shader;
 };
 
-const cProgram = (...list) => {
+const cProgram = (gl, ...list) => {
   const program = gl.createProgram();
 
   const { length } = list;
@@ -28,11 +57,14 @@ const cProgram = (...list) => {
   }
 
   gl.linkProgram(program);
+  gl.useProgram(program);
 
-  return gl.getProgramParameter(program, gl.LINK_STATUS) && program;
+  return program;
+
+  // return gl.getProgramParameter(program, gl.LINK_STATUS) && program;
 };
 
-const cVBO = (data = []) => {
+const cVBO = (gl, data = []) => {
   const vbo = gl.createBuffer();
 
   gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -42,13 +74,13 @@ const cVBO = (data = []) => {
   return vbo;
 };
 
-const setAttr = (vbo, from, to, gl) => {
+const setAttr = (gl, vbo, location, stride) => {
   const { length = 0 } = vbo;
 
   for(let v = 0; v < length; v += 1) {
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo[v]);
-    gl.enableVertexAttribArray(from[v]);
-    gl.vertexAttribPointer(from[v], to[v], gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(location[v]);
+    gl.vertexAttribPointer(location[v], stride[v], gl.FLOAT, false, 0, 0);
   }
 }
 
@@ -83,9 +115,9 @@ class App extends Component {
 
     gl.clear(gl.COLOR_BUFFER_BIT || gl.DEPTH_BUFFER_BIT);
 
-    const vShader = cShader(VSHADER_SOURCE, gl);
-    const fShader = cShader(FSHADER_SOURCE, gl, gl.FRAGMENT_SHADER);
-    const program = cProgram(vShader, fShader);
+    const vShader = cShader(gl, VSHADER_SOURCE);
+    const fShader = cShader(gl, FSHADER_SOURCE, gl.FRAGMENT_SHADER);
+    const program = cProgram(gl, vShader, fShader);
 
     const aLocation = [];
     const aStride = [3, 4];
@@ -105,15 +137,51 @@ class App extends Component {
       0.0, 0.0, 1.0, 1.0,
     ];
 
-    const positionVBO = cVBO(position);
-    const colorVBO = cVBO(color);
+    const positionVBO = cVBO(gl, position);
+    const colorVBO = cVBO(gl, color);
 
+    setAttr(gl, [positionVBO, colorVBO], aLocation, aStride);
 
+    const uniLocation = gl.getUniformLocation(program, 'mvpMatrix');
+
+    let mMatrix = new THREE.Matrix4();
+    const vMatrix = new THREE.Matrix4();
+    const pMatrix = new THREE.PerspectiveCamera(90, 1, 0.1, 100);
+    const tmpMatrix = new THREE.Matrix4();
+    const mvpMatrix = new THREE.Matrix4();
+
+    // pMatrix.position.copy(new THREE.Vector3(0.0, 0.0, 3.0));
+    // pMatrix.up.copy(new THREE.Vector3(0, 1, 0));
+
+    // const res =  pMatrix.watchAt(new THREE.Vector3(0, 0, 0));
+
+    vMatrix.watchAt(
+      new THREE.Vector3(0, 0, 100),
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(0, 1, 0),
+    );
+    tmpMatrix.multiplyMatrices(pMatrix.projectionMatrix, vMatrix);
+    mMatrix.makeTranslation(1.5, 0.0, 0.0);
+
+    mvpMatrix.multiplyMatrices(tmpMatrix, mMatrix);
+
+    gl.uniformMatrix4fv(uniLocation, false, mvpMatrix.elements);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    mMatrix = new THREE.Matrix4();
+    mMatrix.makeTranslation(-1.5, 0.0, 0.0);
+    mvpMatrix.multiplyMatrices(tmpMatrix, mMatrix);
+
+    gl.uniformMatrix4fv(uniLocation, false, mvpMatrix.elements);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    gl.flush();
   }
 
   render() {
     return (
-      <canvas id="canvas" />
+      <canvas id="canvas" width="500" height="500" />
     )
   }
 }
