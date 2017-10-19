@@ -52,9 +52,9 @@ const animation = (gl, mMatrix, tmpMatrix, mvpMatrix, uniLocation, index, list) 
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
   // renderGl(gl, [0, 0, 0], mMatrix, mvpMatrix, tmpMatrix, uniLocation[0], index, 0);
 
-  mMatrix.makeRotationAxis(new THREE.Vector3(0, 0, 1).normalize(), 0);
+  mMatrix.makeRotationAxis(new THREE.Vector3(0, 0, 10).normalize(), 0);
   // mMatrix.scale(new THREE.Vector3(y, y, 1));
-  // mMatrix.setPosition(new THREE.Vector3(0, x, 0));
+  mMatrix.setPosition(new THREE.Vector3(0, 0, -10));
   mvpMatrix.multiplyMatrices(tmpMatrix, mMatrix);
 
   gl.uniformMatrix4fv(uniLocation[0], false, mvpMatrix.elements);

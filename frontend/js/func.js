@@ -186,6 +186,6 @@ export function setAttr(gl, vbo, location, stride) {
   for(let v = 0; v < length; v += 1) {
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo[v]);
     gl.enableVertexAttribArray(location[v]);
-    gl.vertexAttribPointer(location[v], stride[v], gl.FLOAT, false, 0, 0);
+    gl.vertexAttribPointer(location[v], stride[v], gl.FLOAT, true, 0, 0);
   }
 };
